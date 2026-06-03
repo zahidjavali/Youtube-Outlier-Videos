@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Outlier Finder</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        'brand-red': '#FF0000',
+                        'brand-light': '#F9F9F9',
+                        'brand-dark': '#212121',
+                        'brand-dark-2': '#181818',
+                        'brand-gray': '#AAAAAA',
+                        'brand-gray-2': '#3D3D3D',
+                        'brand-gray-3': '#272727',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Lucide Icons CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.439.0/dist/umd/lucide.min.js"></script>
+
+    <style>
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #181818;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3D3D3D;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #FF0000;
+        }
+    </style>
+</head>
+<body class="bg-brand-dark-2 text-brand-light font-sans min-h-screen flex flex-col antialiased">
+
+    <!-- Header Section -->
+    <header id="main-header" class="bg-brand-dark border-b border-brand-gray-3 py-4 sticky top-0 z-50 shadow-md">
+        <div class="container mx-auto px-4 flex items-center justify-between">
+            <div id="header-logo-container" class="flex items-center gap-3">
+                <div id="youtube-brand-icon" class="bg-brand-red/10 p-2 rounded-lg flex items-center justify-center">
+                    <i data-lucide="youtube" class="text-brand-red w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold text-white font-display tracking-tight leading-none">YouTube Outlier Finder</h1>
+                    <span class="text-[10px] text-brand-gray tracking-widest uppercase font-mono mt-0.5 block">Velocity & Performance Analytics</span>
+                </div>
+            </div>
+            <div id="header-badge" class="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-brand-gray-3 border border-brand-gray-2 rounded-full text-xs text-brand-gray">
+                <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-ping"></span>
+                <span>Direct Data API v3 client</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow container mx-auto px-4 py-8 max-w-7xl">
+        
+        <!-- Analysis Configuration Block -->
+        <section id="config-section" class="bg-brand-dark rounded-xl p-6 mb-8 border border-brand-gray-3 shadow-xl">
+            <h2 class="text-lg font-bold font-display text-white mb-5 flex items-center gap-2">
+                <i data-lucide="sliders" class="w-5 h-5 text-brand-red"></i>
+                Analysis Configuration
+            </h2>
+            
+            <!-- Quick Input Mode Switchers -->
+            <div id="mode-tabs-container" class="flex gap-3 mb-6">
+                <button id="mode-search-btn" onclick="updateInputType('search')" class="flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition duration-200 border border-brand-red bg-brand-red/10 text-white font-display text-sm">
+                    <i data-lucide="search" class="w-4 h-4"></i>
+                    By Search Term
+                </button>
+                <button id="mode-channel-btn" onclick="updateInputType('channel')" class="flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition duration-200 border border-brand-gray-2 bg-brand-gray-3 hover:bg-brand-gray-2 text-brand-gray font-display text-sm">
+                    <i data-lucide="tv" class="w-4 h-4"></i>
+                    By Channel ID / Name
+                </button>
+            </div>
+
+            <!-- Configuration Inputs Grid -->
+            <div id="inputs-grid" class="grid grid-cols-1 md:grid-cols-2 gap-5 items-end">
+                <!-- API Key Section -->
+                <div id="api-key-container" class="relative">
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label for="api-key-input" class="text-xs font-semibold text-brand-gray uppercase tracking-wider">YouTube Data API Key</label>
+                        <button id="clear-key-btn" onclick="clearApiKey()" class="text-[10px] text-brand-red hover:underline font-mono opacity-80 hover:opacity-100 hidden">Clear saved</button>
+                    </div>
+                    <div class="relative flex items-center">
+                        <input
+                            id="api-key-input"
+                            type="password"
+                            placeholder="Enter your private API key"
+                            class="w-full bg-brand-gray-3 border border-brand-gray-2 text-white rounded-lg p-2.5 pr-10 focus:ring-2 focus:ring-brand-red focus:border-transparent focus:outline-none transition font-mono text-sm placeholder:font-sans"
+                        />
+                        <button id="toggle-key-visibility" onclick="toggleKeyVisibility()" class="absolute right-3 text-brand-gray hover:text-white transition focus:outline-none" title="Toggle Visibility">
+                            <i data-lucide="eye" id="eye-icon" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Query / Search Section -->
+                <div id="query-container">
+                    <label id="query-label" htmlFor="query-input" class="block text-xs font-semibold text-brand-gray mb-1.5 uppercase tracking-wider">Search Term</label>
+                    <input
+                        id="query-input"
+                        type="text"
+                        placeholder="e.g., 'artificial intelligence tech'"
+                        class="w-full bg-brand-gray-3 border border-brand-gray-2 text-white rounded-lg p-2.5 focus:ring-2 focus:ring-brand-red focus:border-transparent focus:outline-none transition text-sm"
+                    />
+                </div>
+            </div>
+
+            <!-- Preset Samples Helper (Incredibly convenient details addition) -->
+            <div id="samples-container" class="mt-4 pt-4 border-t border-brand-gray-3/50 flex flex-wrap items-center gap-2 text-xs">
+                <span class="text-brand-gray font-medium">Quick Samples:</span>
+                <button onclick="setSample('search', 'iPad Pro Review')" class="px-2.5 py-1 bg-brand-gray-3 border border-brand-gray-2 rounded-md hover:border-brand-red hover:text-white transition font-mono text-[11px]">"iPad Pro Review"</button>
+                <button onclick="setSample('search', 'Sora Text To Video')" class="px-2.5 py-1 bg-brand-gray-3 border border-brand-gray-2 rounded-md hover:border-brand-red hover:text-white transition font-mono text-[11px]">"Sora Text To Video"</button>
+                <button onclick="setSample('channel', 'UC_x5XG1OV2P6uZZ5FSM9Ttw')" class="px-2.5 py-1 bg-brand-gray-3 border border-brand-gray-2 rounded-md hover:border-brand-red hover:text-white transition font-mono text-[11px]">Computerphile</button>
+                <button onclick="setSample('channel', '@MKBHD')" class="px-2.5 py-1 bg-brand-gray-3 border border-brand-gray-2 rounded-md hover:border-brand-red hover:text-white transition font-mono text-[11px]">MKBHD</button>
+            </div>
+
+            <!-- Action Controls Button -->
+            <div id="btn-container" class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <p class="text-xs text-brand-gray leading-relaxed max-w-lg">
+                    This client fetches the last 50 videos and applies a <span class="text-white font-semibold">Z-Score analysis</span> to views velocity (Views/Day) to locate statistical performance outliers.
+                </p>
+                <button
+                    id="find-outliers-btn"
+                    onclick="handleAnalyze()"
+                    class="w-full sm:w-auto flex items-center justify-center gap-2 bg-brand-red hover:bg-red-700 text-white font-bold py-2.5 px-8 rounded-lg transition-all duration-300 shadow-lg active:scale-[0.98]"
+                >
+                    <i data-lucide="search" class="w-5 h-5"></i>
+                    <span>Find Outliers</span>
+                </button>
+            </div>
+
+            <!-- Config Alerts Box (Errors) -->
+            <div id="error-alert" class="mt-4 bg-red-900/40 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg flex items-start gap-3 hidden">
+                <i data-lucide="alert-triangle" class="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0"></i>
+                <div id="error-message-text" class="text-sm">Please fill out both inputs correctly.</div>
+            </div>
+        </section>
+
+        <!-- SKELETON / LOADING LOADER (Outstanding user-experience upgrade!) -->
+        <section id="loading-state" class="hidden space-y-8 animate-pulse">
+            <!-- Metrics Skeleton -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-brand-dark border border-brand-gray-3 h-24 rounded-xl"></div>
+                <div class="bg-brand-dark border border-brand-gray-3 h-24 rounded-xl"></div>
+                <div class="bg-brand-dark border border-brand-gray-3 h-24 rounded-xl"></div>
+                <div class="bg-brand-dark border border-brand-gray-3 h-24 rounded-xl"></div>
+            </div>
+            
+            <!-- Outliers Skeleton -->
+            <div class="space-y-4">
+                <div class="h-6 w-48 bg-brand-gray-3 rounded"></div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    <div class="bg-brand-dark border border-brand-gray-3 h-64 rounded-xl"></div>
+                    <div class="bg-brand-dark border border-brand-gray-3 h-64 rounded-xl"></div>
+                    <div class="bg-brand-dark border border-brand-gray-3 h-64 rounded-xl"></div>
+                </div>
+            </div>
+
+            <!-- Charts Skeleton -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-brand-dark border border-brand-gray-3 h-80 rounded-xl"></div>
+                <div class="bg-brand-dark border border-brand-gray-3 h-80 rounded-xl"></div>
+            </div>
+        </section>
+
+        <!-- READY / INITIAL STATE VIEW -->
+        <section id="ready-state" class="text-center py-20 bg-brand-dark rounded-xl border border-dashed border-brand-gray-2 shadow-inner my-6">
+            <div class="bg-brand-gray-3 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-brand-gray-2 shadow-md">
+                <i data-lucide="lightbulb" class="h-8 w-8 text-brand-gray"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white font-display">Ready to Discover Outliers?</h3>
+            <p class="text-brand-gray mt-2 text-sm max-w-md mx-auto">
+                Select your lookup strategy, enter your private YouTube API Key, and query to locate high-performing videos based on statistical distribution of velocity.
+            </p>
+        </section>
+
+        <!-- RESULTS / DYNAMIC ANALYSIS DASHBOARD CONTAINER -->
+        <div id="analysis-results" class="hidden space-y-10">
+            
+            <!-- 1. Key Performance Indicators Section (Bento Overview) -->
+            <section id="summary-section" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Total Videos -->
+                <div id="stat-total" class="bg-brand-dark border border-brand-gray-3 p-5 rounded-xl shadow-md flex items-center gap-4">
+                    <div class="bg-blue-500/10 p-3 rounded-lg flex items-center justify-center">
+                        <i data-lucide="film" class="text-blue-400 w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <span class="text-xs text-brand-gray uppercase tracking-wider block">Analyzed Videos</span>
+                        <span id="metric-total-videos" class="text-2xl font-bold font-mono text-white">0</span>
+                    </div>
+                </div>
+                <!-- Average Velocity -->
+                <div id="stat-mean" class="bg-brand-dark border border-brand-gray-3 p-5 rounded-xl shadow-md flex items-center gap-4">
+                    <div class="bg-emerald-500/10 p-3 rounded-lg flex items-center justify-center">
+                        <i data-lucide="trending-up" class="text-emerald-400 w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <span class="text-xs text-brand-gray uppercase tracking-wider block">Mean Views/Day</span>
+                        <span id="metric-mean-velocity" class="text-2xl font-bold font-mono text-white">0</span>
+                    </div>
+                </div>
+                <!-- Std Deviation -->
+                <div id="stat-std" class="bg-brand-dark border border-brand-gray-3 p-5 rounded-xl shadow-md flex items-center gap-4">
+                    <div class="bg-purple-500/10 p-3 rounded-lg flex items-center justify-center">
+                        <i data-lucide="activity" class="text-purple-400 w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <span class="text-xs text-brand-gray uppercase tracking-wider block">Std Dev Velocity</span>
+                        <span id="metric-std-dev" class="text-2xl font-bold font-mono text-white">0</span>
+                    </div>
+                </div>
+                <!-- Detected Outliers -->
+                <div id="stat-outliers" class="bg-brand-dark border border-brand-gray-3 p-5 rounded-xl shadow-md flex items-center gap-4">
+                    <div class="bg-brand-red/10 p-3 rounded-lg flex items-center justify-center">
+                        <i data-lucide="sparkles" class="text-brand-red w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <span class="text-xs text-brand-gray uppercase tracking-wider block">Outliers Located</span>
+                        <span id="metric-outliers-count" class="text-2xl font-bold font-mono text-brand-red">0</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. Outliers Listing Section (Cards) -->
+            <section id="outliers-section" class="hidden">
+                <h2 class="text-xl sm:text-2xl font-bold font-display text-white mb-4 flex items-center gap-2">
+                    <i data-lucide="star" class="text-brand-red fill-brand-red w-6 h-6"></i>
+                    Top Outliers <span class="text-xs bg-red-950 border border-brand-red text-red-200 px-2 py-0.5 rounded-full font-mono font-medium">Z-Score > 2.0</span>
+                </h2>
+                <div id="outliers-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    <!-- Dynamic Outlier Cards will render here -->
+                </div>
+            </section>
+
+            <!-- 3. Charts/Visualizations Grid -->
+            <section id="charts-section">
+                <h2 class="text-xl sm:text-2xl font-bold font-display text-white mb-4 flex items-center gap-2">
+                    <i data-lucide="bar-chart" class="text-blue-400 w-6 h-6"></i>
+                    Visualizations
+                </h2>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Velocity Over Time line chart -->
+                    <div class="bg-brand-dark p-5 rounded-xl border border-brand-gray-3 shadow-md flex flex-col justify-between">
+                        <div class="mb-4">
+                            <h3 class="font-bold text-white font-display">View Velocity Over Time</h3>
+                            <p class="text-xs text-brand-gray">Chronological representation of average daily view rate. Highlighted red dots show located outliers.</p>
+                        </div>
+                        <div class="relative h-[300px] w-full bg-brand-dark/50 p-2 rounded-lg border border-brand-gray-3/50 flex items-center justify-center">
+                            <canvas id="viewVelocityChart" class="w-full h-full"></canvas>
+                        </div>
+                    </div>
+                    <!-- Bar Chart - Outliers Top Ranking -->
+                    <div class="bg-brand-dark p-5 rounded-xl border border-brand-gray-3 shadow-md flex flex-col justify-between">
+                        <div class="mb-4">
+                            <h3 class="font-bold text-white font-display">Top Outliers by View Velocity</h3>
+                            <p class="text-xs text-brand-gray">Horizontal ranking mapping top 10 outlier performances in order of views acquired per day.</p>
+                        </div>
+                        <div class="relative h-[300px] w-full bg-brand-dark/50 p-2 rounded-lg border border-brand-gray-3/50 flex items-center justify-center">
+                            <canvas id="topOutliersChart" class="w-full h-full"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. Complete Raw Video Dataset Table (Highly interactive, sorting toggling!) -->
+            <section id="table-section">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                    <h2 class="text-xl sm:text-2xl font-bold font-display text-white flex items-center gap-2">
+                        <i data-lucide="layers" class="text-emerald-400 w-6 h-6"></i>
+                        All Analyzed Videos
+                    </h2>
+                    <span class="text-xs text-brand-gray block">Click header indicators (<span class="font-bold">↕ ↓ ↑</span>) to change dynamic sort strategy</span>
+                </div>
+                
+                <div class="overflow-x-auto bg-brand-dark rounded-xl border border-brand-gray-3 shadow-xl">
+                    <table class="w-full text-xs sm:text-sm text-left text-brand-gray">
+                        <thead class="text-xs text-white uppercase bg-brand-gray-3 hover:bg-neutral-800 transition duration-150">
+                            <tr class="border-b border-brand-gray-2 text-[10px] md:text-xs tracking-wider">
+                                <th scope="col" onclick="toggleSort('title')" class="cursor-pointer px-4 py-3.5 text-left font-display font-medium hover:bg-brand-gray-2 transition select-none">
+                                    Title 
+                                    <span id="sort-indicator-title" class="ml-1 text-xs text-brand-gray opacity-40">↕</span>
+                                </th>
+                                <th scope="col" onclick="toggleSort('publishedAt')" class="cursor-pointer px-4 py-3.5 text-left font-display font-medium hover:bg-brand-gray-2 transition select-none whitespace-nowrap">
+                                    Published 
+                                    <span id="sort-indicator-publishedAt" class="ml-1 text-xs text-brand-red font-bold">↓</span>
+                                </th>
+                                <th scope="col" onclick="toggleSort('viewCount')" class="cursor-pointer px-4 py-3.5 text-right font-display font-medium hover:bg-brand-gray-2 transition select-none whitespace-nowrap">
+                                    Views 
+                                    <span id="sort-indicator-viewCount" class="ml-1 text-xs text-brand-gray opacity-40">↕</span>
+                                </th>
+                                <th scope="col" onclick="toggleSort('likeCount')" class="cursor-pointer px-4 py-3.5 text-right font-display font-medium hover:bg-brand-gray-2 transition select-none whitespace-nowrap hidden md:table-cell">
+                                    Likes 
+                                    <span id="sort-indicator-likeCount" class="ml-1 text-xs text-brand-gray opacity-40">↕</span>
+                                </th>
+                                <th scope="col" onclick="toggleSort('commentCount')" class="cursor-pointer px-4 py-3.5 text-right font-display font-medium hover:bg-brand-gray-2 transition select-none whitespace-nowrap hidden md:table-cell">
+                                    Comments 
+                                    <span id="sort-indicator-commentCount" class="ml-1 text-xs text-brand-gray opacity-40">↕</span>
+                                </th>
+                                <th scope="col" onclick="toggleSort('viewVelocity')" class="cursor-pointer px-4 py-3.5 text-right font-display font-medium hover:bg-brand-gray-2 transition select-none whitespace-nowrap">
+                                    Views/Day 
+                                    <span id="sort-indicator-viewVelocity" class="ml-1 text-xs text-brand-gray opacity-40">↕</span>
+                                </th>
+                                <th scope="col" onclick="toggleSort('zScore')" class="cursor-pointer px-4 py-3.5 text-right font-display font-medium hover:bg-brand-gray-2 transition select-none whitespace-nowrap">
+                                    Z-Score 
+                                    <span id="sort-indicator-zScore" class="ml-1 text-xs text-brand-gray opacity-40">↕</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="divide-y divide-brand-gray-3/30">
+                            <!-- Dynamic Content Rendered here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer of the Application -->
+    <footer id="main-footer" class="bg-brand-dark py-6 border-t border-brand-gray-3 mt-12 text-center text-xs text-brand-gray">
+        <div class="container mx-auto px-4 max-w-lg space-y-2">
+            <p>
+                Designed strictly as a Single-View, client-side, zero-backend dashboard application.
+            </p>
+            <p class="font-mono text-[10px] tracking-widest text-brand-gray/60 uppercase">
+                &copy; 2026 YouTube Outlier Finder &bull; Built with Vanilla JavaScript
+            </p>
+        </div>
+    </footer>
+
+    <!-- Vanilla Javascript Logic Core -->
+    <script>
+        // API Base configuration
+        const API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
+        const MAX_RESULTS_PER_PAGE = 50;
+
+        // Reactive Application States
+        let allAnalyzedVideos = [];
+        let allOutliers = [];
+        let inputType = 'search'; // 'search' | 'channel'
+        let sortKey = 'publishedAt';
+        let sortDirection = 'descending';
+
+        // Chart References
+        let viewVelocityChart = null;
+        let topOutliersChart = null;
+
+        // Initialize state, load saved keys, resolve icons
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            loadLocalStorageApiKey();
+        });
+
+        // Toggle Key Visibility (password string vs text block)
+        function toggleKeyVisibility() {
+            const apiInput = document.getElementById('api-key-input');
+            const eyeIcon = document.getElementById('eye-icon');
+            if (!apiInput || !eyeIcon) return;
+
+            if (apiInput.type === 'password') {
+                apiInput.type = 'text';
+                eyeIcon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                apiInput.type = 'password';
+                eyeIcon.setAttribute('data-lucide', 'eye');
+            }
+            lucide.createIcons();
+        }
+
+        // LocalStorage Key state handling
+        function loadLocalStorageApiKey() {
+            const savedKey = localStorage.getItem('youtube_analytics_api_key');
+            if (savedKey) {
+                document.getElementById('api-key-input').value = savedKey;
+                document.getElementById('clear-key-btn').classList.remove('hidden');
+            }
+        }
+
+        function saveLocalStorageApiKey(key) {
+            if (key && key.trim()) {
+                localStorage.setItem('youtube_analytics_api_key', key.trim());
+                document.getElementById('clear-key-btn').classList.remove('hidden');
+            }
+        }
+
+        function clearApiKey() {
+            localStorage.removeItem('youtube_analytics_api_key');
+            document.getElementById('api-key-input').value = '';
+            document.getElementById('clear-key-btn').classList.add('hidden');
+        }
+
+        // Quick Input preset sample click helper
+        function setSample(type, query) {
+            updateInputType(type);
+            document.getElementById('query-input').value = query;
+        }
+
+        // Switch Input type selector (tabs instead of basic radios)
+        function updateInputType(type) {
+            inputType = type;
+            const labels = {
+                'search': 'Search Term',
+                'channel': 'Channel ID, Handle, or Name'
+            };
+            const placeholders = {
+                'search': 'e.g., "artificial intelligence tech"',
+                'channel': 'e.g., @MKBHD or UC_x5XG1OV2P6uZZ5FSM9Ttw'
+            };
+
+            const queryLabel = document.getElementById('query-label');
+            const queryInput = document.getElementById('query-input');
+            if (queryLabel) queryLabel.textContent = labels[type];
+            if (queryInput) queryInput.placeholder = placeholders[type];
+
+            // Re-style Tab buttons
+            const searchBtn = document.getElementById('mode-search-btn');
+            const channelBtn = document.getElementById('mode-channel-btn');
+
+            if (type === 'search') {
+                searchBtn.className = "flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition duration-200 border border-brand-red bg-brand-red/10 text-white font-display text-sm";
+                channelBtn.className = "flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition duration-200 border border-brand-gray-2 bg-brand-gray-3 hover:bg-brand-gray-2 text-brand-gray font-display text-sm";
+            } else {
+                channelBtn.className = "flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition duration-200 border border-brand-red bg-brand-red/10 text-white font-display text-sm";
+                searchBtn.className = "flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition duration-200 border border-brand-gray-2 bg-brand-gray-3 hover:bg-brand-gray-2 text-brand-gray font-display text-sm";
+            }
+        }
+
+        // Fetch wrapper for YouTube Data API endpoints
+        async function apiFetch(endpoint, params) {
+            const url = new URL(`${API_BASE_URL}/${endpoint}`);
+            Object.entries(params).forEach(([key, value]) => url.searchParams.append(key, value));
+            
+            const response = await fetch(url.toString());
+            const data = await response.json();
+
+            if (!response.ok) {
+                const errorMsg = data.error?.message || `API request failed with status ${response.status}`;
+                throw new Error(errorMsg);
+            }
+            return data;
+        }
+
+        // Retrieve uploaded videos by locating channel upload playlists
+        async function fetchVideoIdsByChannel(channelInput, apiKey) {
+            // Step 1: Query channel directly by ID match
+            let channelData = await apiFetch('channels', {
+                part: 'contentDetails',
+                id: channelInput.trim(),
+                key: apiKey
+            });
+
+            // Step 2: Handle fallback options (Searching by name, handle suffix `@`...)
+            if (!channelData.items || channelData.items.length === 0) {
+                const searchData = await apiFetch('search', {
+                    part: 'snippet',
+                    q: channelInput.trim(),
+                    type: 'channel',
+                    maxResults: '1',
+                    key: apiKey
+                });
+
+                if (searchData.items && searchData.items.length > 0) {
+                    const foundChannelId = searchData.items[0].id.channelId;
+                    channelData = await apiFetch('channels', {
+                        part: 'contentDetails',
+                        id: foundChannelId,
+                        key: apiKey
+                    });
+                }
+            }
+            
+            if (!channelData.items || channelData.items.length === 0) {
+                throw new Error(`Could not find a YouTube channel matching "${channelInput}". Please check the Channel ID, name, or handle.`);
+            }
+
+            const uploadsPlaylistId = channelData.items[0].contentDetails.relatedPlaylists.uploads;
+
+            // Step 3: Fetch playlist items (videos within Upload playlists)
+            const playlistItemsData = await apiFetch('playlistItems', {
+                part: 'contentDetails',
+                playlistId: uploadsPlaylistId,
+                maxResults: MAX_RESULTS_PER_PAGE.toString(),
+                key: apiKey,
+            });
+            
+            return playlistItemsData.items
+                ?.map(item => item.contentDetails.videoId)
+                .filter(Boolean) || [];
+        }
+
+        // Direct search query lookup
+        async function fetchVideoIdsBySearch(query, apiKey) {
+            const searchData = await apiFetch('search', {
+                part: 'snippet',
+                q: query.trim(),
+                type: 'video',
+                maxResults: MAX_RESULTS_PER_PAGE.toString(),
+                key: apiKey,
+            });
+
+            return searchData.items
+                ?.map(item => item.id.videoId)
+                .filter(Boolean) || [];
+        }
+
+        // Fetch detailed stats card per video ID list
+        async function fetchAndAnalyzeVideos(query, inputType, apiKey) {
+            let videoIds = [];
+
+            if (inputType === 'channel') {
+                videoIds = await fetchVideoIdsByChannel(query, apiKey);
+            } else {
+                videoIds = await fetchVideoIdsBySearch(query, apiKey);
+            }
+
+            if (videoIds.length === 0) {
+                return [];
+            }
+            
+            // Stats batch collection
+            const videoDetailsData = await apiFetch('videos', {
+                part: 'snippet,statistics',
+                id: videoIds.join(','),
+                key: apiKey,
+            });
+            
+            const videos = videoDetailsData.items.map(item => ({
+                id: item.id,
+                title: item.snippet.title,
+                publishedAt: item.snippet.publishedAt,
+                thumbnailUrl: item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url || '',
+                viewCount: parseInt(item.statistics.viewCount || '0', 10),
+                likeCount: parseInt(item.statistics.likeCount || '0', 10),
+                commentCount: parseInt(item.statistics.commentCount || '0', 10),
+            }));
+
+            return videos;
+        }
+
+        // Calculate view velocity, standard deviation distributions, and identify outliers
+        function analyzeMetrics(allVideos) {
+            // Calculations step mapping velocity/days
+            const videosWithMetrics = allVideos.map(video => {
+                const publishDate = new Date(video.publishedAt);
+                const ageInDays = Math.max(1, (new Date().getTime() - publishDate.getTime()) / (1000 * 60 * 60 * 24));
+                const viewVelocity = video.viewCount / ageInDays;
+                return { ...video, ageInDays, viewVelocity };
+            });
+
+            // Calculate View Velocity Z-Scores
+            const velocities = videosWithMetrics.map(v => v.viewVelocity);
+            const meanVelocity = velocities.reduce((a, b) => a + b, 0) / (velocities.length || 1);
+            
+            const variance = velocities.map(x => Math.pow(x - meanVelocity, 2)).reduce((a, b) => a + b, 0) / (velocities.length || 1);
+            const stdDevVelocity = Math.sqrt(variance);
+
+            const videosWithZScore = videosWithMetrics.map(video => {
+                const zScore = stdDevVelocity > 0 ? (video.viewVelocity - meanVelocity) / stdDevVelocity : 0;
+                return { ...video, zScore };
+            });
+
+            // Locate Outlier entries (Z-Score > 2.0)
+            const identifiedOutliers = videosWithZScore
+                .filter(v => v.zScore > 2.0)
+                .sort((a, b) => b.viewVelocity - a.viewVelocity);
+
+            return {
+                videos: videosWithZScore.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()),
+                outliers: identifiedOutliers,
+                meanVelocity,
+                stdDevVelocity
+            };
+        }
+
+        // Trigger analysis sequence on button submit click
+        async function handleAnalyze() {
+            const apiKey = document.getElementById('api-key-input').value.trim();
+            const query = document.getElementById('query-input').value.trim();
+            const errorAlert = document.getElementById('error-alert');
+            const findOutliersBtn = document.getElementById('find-outliers-btn');
+            
+            // Clean active errors
+            errorAlert.classList.add('hidden');
+            
+            if (!apiKey || !query) {
+                document.getElementById('error-message-text').textContent = 'Please fill out both your YouTube Data API Key and query parameters to analyze performance outliers.';
+                errorAlert.classList.remove('hidden');
+                return;
+            }
+
+            // Save key to local storage on run
+            saveLocalStorageApiKey(apiKey);
+
+            // Interface Loading transition states
+            findOutliersBtn.disabled = true;
+            findOutliersBtn.innerHTML = `
+                <svg class="animate-spin h-5 w-5 mr-2 text-white" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Analyzing...</span>
+            `;
+
+            document.getElementById('ready-state').classList.add('hidden');
+            document.getElementById('analysis-results').classList.add('hidden');
+            document.getElementById('loading-state').classList.remove('hidden');
+
+            try {
+                const fetchedVideos = await fetchAndAnalyzeVideos(query, inputType, apiKey);
+                
+                if (fetchedVideos.length === 0) {
+                    throw new Error("No videos found. Verify your query term/channel indicator and API key configurations.");
+                }
+
+                // Analyze statistics distributions
+                const analysis = analyzeMetrics(fetchedVideos);
+                allAnalyzedVideos = analysis.videos;
+                allOutliers = analysis.outliers;
+
+                // Render components
+                renderSummaryMeters(analysis.meanVelocity, analysis.stdDevVelocity, allAnalyzedVideos.length, allOutliers.length);
+                renderOutliers();
+                renderTable();
+                updateSortIndicators();
+                renderCharts();
+
+                // Interface load success transition state
+                document.getElementById('loading-state').classList.add('hidden');
+                document.getElementById('analysis-results').classList.remove('hidden');
+
+            } catch (err) {
+                document.getElementById('loading-state').classList.add('hidden');
+                document.getElementById('ready-state').classList.remove('hidden');
+                document.getElementById('error-message-text').textContent = err.message || "An error occurred fetching YouTube data metrics.";
+                errorAlert.classList.remove('hidden');
+            } finally {
+                findOutliersBtn.disabled = false;
+                findOutliersBtn.innerHTML = `
+                    <i data-lucide="search" class="w-5 h-5"></i>
+                    <span>Find Outliers</span>
+                `;
+                lucide.createIcons();
+            }
+        }
+
+        // Render Bento summary counters
+        function renderSummaryMeters(mean, stdDev, count, outliersCount) {
+            const numFormatter = new Intl.NumberFormat('en-US');
+            const compactFormatter = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
+
+            document.getElementById('metric-total-videos').textContent = numFormatter.format(count);
+            document.getElementById('metric-mean-velocity').textContent = compactFormatter.format(Math.round(mean)) + ' / day';
+            document.getElementById('metric-std-dev').textContent = compactFormatter.format(Math.round(stdDev));
+            document.getElementById('metric-outliers-count').textContent = numFormatter.format(outliersCount);
+        }
+
+        // Render card layout outliers listings
+        function renderOutliers() {
+            const outliersSection = document.getElementById('outliers-section');
+            const container = document.getElementById('outliers-container');
+            if (!container || !outliersSection) return;
+
+            if (allOutliers.length === 0) {
+                outliersSection.classList.add('hidden');
+                return;
+            }
+
+            outliersSection.classList.remove('hidden');
+
+            const compact = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
+            const dateFmt = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+            container.innerHTML = allOutliers.map(video => {
+                return `
+                    <a 
+                        href="https://www.youtube.com/watch?v=${video.id}" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="group block bg-brand-dark rounded-xl overflow-hidden border border-brand-gray-3 hover:border-brand-red hover:shadow-2xl hover:shadow-red-950/20 transition-all duration-300 transform hover:-translate-y-1.5"
+                    >
+                        <div class="relative bg-neutral-950 aspect-video overflow-hidden">
+                            <img src="${video.thumbnailUrl}" alt="${video.title.replace(/"/g, '&quot;')}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                            <div class="absolute top-3 right-3 bg-brand-red text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg border border-red-500/20 logo-glow">
+                                Z-Score: ${video.zScore.toFixed(2)}
+                            </div>
+                        </div>
+                        <div class="p-4 flex flex-col justify-between min-h-[160px]">
+                            <div>
+                                <h3 class="font-bold text-sm text-neutral-200 group-hover:text-brand-red transition-colors duration-300 line-clamp-2 leading-snug" title="${video.title.replace(/"/g, '&quot;')}">
+                                    ${video.title}
+                                </h3>
+                                <p class="text-[11px] text-brand-gray mt-1 font-mono flex items-center gap-1">
+                                    <i data-lucide="calendar" class="w-3 h-3 text-brand-gray opacity-45"></i>
+                                    ${dateFmt.format(new Date(video.publishedAt))}
+                                </p>
+                            </div>
+                            <div class="mt-4 pt-3 border-t border-brand-gray-3/50 grid grid-cols-3 gap-1 text-center">
+                                <div>
+                                    <div class="font-bold text-xs sm:text-sm text-white font-mono">${compact.format(video.viewCount)}</div>
+                                    <div class="text-[9px] text-brand-gray uppercase tracking-wider mt-0.5">Views</div>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-xs sm:text-sm text-white font-mono">${compact.format(Math.round(video.viewVelocity))}</div>
+                                    <div class="text-[9px] text-brand-gray uppercase tracking-wider mt-0.5">Views/Day</div>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-xs sm:text-sm text-white font-mono">${compact.format(video.likeCount)}</div>
+                                    <div class="text-[9px] text-brand-gray uppercase tracking-wider mt-0.5">Likes</div>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                `;
+            }).join('');
+        }
+
+        // Handle reactive table sort toggle clicks
+        function toggleSort(key) {
+            if (sortKey === key) {
+                sortDirection = sortDirection === 'ascending' ? 'descending' : 'ascending';
+            } else {
+                sortKey = key;
+                sortDirection = 'descending'; // default to high-to-low on key change
+            }
+            renderTable();
+            updateSortIndicators();
+        }
+
+        // Render sorted row list inside the raw content table
+        function renderTable() {
+            const tbody = document.getElementById('table-body');
+            if (!tbody) return;
+
+            let sorted = [...allAnalyzedVideos];
+            if (sortKey) {
+                sorted.sort((a, b) => {
+                    let valA = a[sortKey];
+                    let valB = b[sortKey];
+
+                    if (sortKey === 'publishedAt') {
+                        valA = new Date(valA).getTime();
+                        valB = new Date(valB).getTime();
+                    }
+
+                    if (valA < valB) return sortDirection === 'ascending' ? -1 : 1;
+                    if (valA > valB) return sortDirection === 'ascending' ? 1 : -1;
+                    return 0;
+                });
+            }
+
+            const numFmt = new Intl.NumberFormat('en-US');
+            const dateFmt = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+            tbody.innerHTML = sorted.map(video => {
+                const isOutlier = video.zScore > 2.0;
+                const rowBg = isOutlier 
+                    ? 'bg-red-500/[0.04] hover:bg-red-500/[0.08] text-white' 
+                    : 'bg-brand-dark hover:bg-brand-gray-3/40 transition-colors';
+                
+                const zScoreClass = isOutlier ? 'text-brand-red font-bold font-mono' : 'text-brand-gray font-mono';
+                const starDecoration = isOutlier ? '<span class="text-brand-red font-bold text-sm cursor-help" title="Performance Outlier (Z-Score > 2.0)">★</span> ' : '';
+                
+                return `
+                    <tr class="${rowBg} border-b border-brand-gray-3/30">
+                        <td class="px-4 py-3.5 font-medium max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg">
+                            <a href="https://www.youtube.com/watch?v=${video.id}" target="_blank" rel="noopener noreferrer" class="hover:text-brand-red flex items-center gap-3">
+                                <img src="${video.thumbnailUrl}" alt="${video.title.replace(/"/g, '&quot;')}" class="w-14 h-8 sm:w-16 sm:h-10 object-cover rounded flex-shrink-0 border border-brand-gray-3 shadow" loading="lazy" />
+                                <span class="truncate block hover:underline" title="${video.title.replace(/"/g, '&quot;')}">${starDecoration}${video.title}</span>
+                            </a>
+                        </td>
+                        <td class="px-4 py-3.5 whitespace-nowrap text-brand-gray font-mono text-[11px] sm:text-xs">${dateFmt.format(new Date(video.publishedAt))}</td>
+                        <td class="px-4 py-3.5 text-right font-mono text-white text-[11px] sm:text-xs">${numFmt.format(video.viewCount)}</td>
+                        <td class="px-4 py-3.5 text-right font-mono text-brand-gray text-[11px] sm:text-xs hidden md:table-cell">${numFmt.format(video.likeCount)}</td>
+                        <td class="px-4 py-3.5 text-right font-mono text-brand-gray text-[11px] sm:text-xs hidden md:table-cell">${numFmt.format(video.commentCount)}</td>
+                        <td class="px-4 py-3.5 text-right font-mono font-bold text-neutral-200 text-[11px] sm:text-xs">${numFmt.format(Math.round(video.viewVelocity))}</td>
+                        <td class="px-4 py-3.5 text-right ${zScoreClass} text-[11px] sm:text-xs">${video.zScore.toFixed(2)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Redraw indicator icons based on current sort criteria
+        const cols = ['title', 'publishedAt', 'viewCount', 'likeCount', 'commentCount', 'viewVelocity', 'zScore'];
+        function updateSortIndicators() {
+            cols.forEach(col => {
+                const icon = document.getElementById(`sort-indicator-${col}`);
+                if (!icon) return;
+
+                if (col === sortKey) {
+                    icon.className = "ml-1 text-xs text-brand-red font-bold";
+                    icon.textContent = sortDirection === 'ascending' ? '↑' : '↓';
+                } else {
+                    icon.className = "ml-1 text-xs text-brand-gray opacity-30";
+                    icon.textContent = '↕';
+                }
+            });
+        }
+
+        // Render Chart.js configurations
+        function renderCharts() {
+            const vvCtx = document.getElementById('viewVelocityChart')?.getContext('2d');
+            const toCtx = document.getElementById('topOutliersChart')?.getContext('2d');
+
+            if (!vvCtx || !toCtx) return;
+
+            // Destroy previous structures
+            if (viewVelocityChart) viewVelocityChart.destroy();
+            if (topOutliersChart) topOutliersChart.destroy();
+
+            // Assemble chronological datasets for Line Velocity
+            const chronological = [...allAnalyzedVideos].sort((a, b) => new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime());
+            const lineLabels = chronological.map(v => new Date(v.publishedAt).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
+            const lineData = chronological.map(v => v.viewVelocity);
+
+            viewVelocityChart = new Chart(vvCtx, {
+                type: 'line',
+                data: {
+                    labels: lineLabels,
+                    datasets: [{
+                        label: 'Views / Day',
+                        data: lineData,
+                        borderColor: '#FF0000',
+                        backgroundColor: 'rgba(255, 0, 0, 0.04)',
+                        borderWidth: 2,
+                        tension: 0.2,
+                        fill: true,
+                        pointBackgroundColor: chronological.map(v => v.zScore > 2.0 ? '#FF0000' : '#4ade80'),
+                        pointBorderColor: chronological.map(v => v.zScore > 2.0 ? '#FFFFFF' : '#4ade80'),
+                        pointRadius: chronological.map(v => v.zScore > 2.0 ? 5 : 0),
+                        pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(61, 61, 61, 0.3)', drawBorder: false },
+                            ticks: { color: '#AAAAAA', font: { family: 'Fira Code, JetBrains Mono', size: 9 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(61, 61, 61, 0.3)', drawBorder: false },
+                            ticks: { color: '#AAAAAA', font: { family: 'Fira Code, JetBrains Mono', size: 9 } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#212121',
+                            borderColor: '#3D3D3D',
+                            borderWidth: 1,
+                            cornerRadius: 6,
+                            padding: 12,
+                            displayColors: false,
+                            titleFont: { family: 'Space Grotesk', size: 12, weight: 'bold' },
+                            bodyFont: { family: 'Inter', size: 11 },
+                            bodyColor: '#AAAAAA',
+                            titleColor: '#FFFFFF',
+                            callbacks: {
+                                title: function(ctx) {
+                                    return chronological[ctx[0].dataIndex].title;
+                                },
+                                label: function(ctx) {
+                                    const video = chronological[ctx.dataIndex];
+                                    return [
+                                        `Published: ${new Date(video.publishedAt).toLocaleDateString()}`,
+                                        `Views/Day: ${Math.round(video.viewVelocity).toLocaleString()}`,
+                                        `Z-Score: ${video.zScore.toFixed(2)}`,
+                                        `Total Views: ${video.viewCount.toLocaleString()}`
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Top Outliers rank Horizontal Bar chart
+            const rankingOutliers = [...allOutliers].sort((a, b) => b.viewVelocity - a.viewVelocity).slice(0, 10);
+            const barLabels = rankingOutliers.map(v => v.title.length > 25 ? v.title.substring(0, 25) + '...' : v.title);
+            const barData = rankingOutliers.map(v => v.viewVelocity);
+
+            topOutliersChart = new Chart(toCtx, {
+                type: 'bar',
+                data: {
+                    labels: barLabels,
+                    datasets: [{
+                        data: barData,
+                        backgroundColor: 'rgba(255, 0, 0, 0.75)',
+                        hoverBackgroundColor: '#FF0000',
+                        borderRadius: 6,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(61, 61, 61, 0.3)', drawBorder: false },
+                            ticks: { color: '#AAAAAA', font: { family: 'Fira Code, JetBrains Mono', size: 9 } }
+                        },
+                        y: {
+                            grid: { display: false, drawBorder: false },
+                            ticks: { color: '#FFFFFF', font: { family: 'Space Grotesk', size: 10 } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#212121',
+                            borderColor: '#3D3D3D',
+                            borderWidth: 1,
+                            cornerRadius: 6,
+                            padding: 12,
+                            displayColors: false,
+                            titleFont: { family: 'Space Grotesk', size: 12, weight: 'bold' },
+                            bodyFont: { family: 'Inter', size: 11 },
+                            bodyColor: '#AAAAAA',
+                            titleColor: '#FFFFFF',
+                            callbacks: {
+                                title: function(ctx) {
+                                    return rankingOutliers[ctx[0].dataIndex].title;
+                                },
+                                label: function(ctx) {
+                                    const video = rankingOutliers[ctx.dataIndex];
+                                    return [
+                                        `Published: ${new Date(video.publishedAt).toLocaleDateString()}`,
+                                        `Views/Day: ${Math.round(video.viewVelocity).toLocaleString()}`,
+                                        `Z-Score: ${video.zScore.toFixed(2)}`,
+                                        `Total Views: ${video.viewCount.toLocaleString()}`
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

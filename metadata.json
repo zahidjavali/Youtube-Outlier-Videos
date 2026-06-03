@@ -1,0 +1,6 @@
+{
+  "name": "YouTube Outlier Finder",
+  "description": "An open-source tool to identify outlier videos from any YouTube channel. Input a channel ID and a YouTube Data API key to analyze video performance and discover which videos are performing exceptionally well based on view velocity and other metrics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
