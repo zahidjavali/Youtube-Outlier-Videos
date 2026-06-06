@@ -80,7 +80,7 @@
             </div>
             <div id="header-badge" class="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-brand-gray-3 border border-brand-gray-2 rounded-full text-xs text-brand-gray">
                 <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-ping"></span>
-                <span>Direct Data API v3 client</span>
+                <span>Secure Backend Proxy</span>
             </div>
         </div>
     </header>
@@ -108,29 +108,10 @@
             </div>
 
             <!-- Configuration Inputs Grid -->
-            <div id="inputs-grid" class="grid grid-cols-1 md:grid-cols-2 gap-5 items-end">
-                <!-- API Key Section -->
-                <div id="api-key-container" class="relative">
-                    <div class="flex justify-between items-center mb-1.5">
-                        <label for="api-key-input" class="text-xs font-semibold text-brand-gray uppercase tracking-wider">YouTube Data API Key</label>
-                        <button id="clear-key-btn" onclick="clearApiKey()" class="text-[10px] text-brand-red hover:underline font-mono opacity-80 hover:opacity-100 hidden">Clear saved</button>
-                    </div>
-                    <div class="relative flex items-center">
-                        <input
-                            id="api-key-input"
-                            type="password"
-                            placeholder="Enter your private API key"
-                            class="w-full bg-brand-gray-3 border border-brand-gray-2 text-white rounded-lg p-2.5 pr-10 focus:ring-2 focus:ring-brand-red focus:border-transparent focus:outline-none transition font-mono text-sm placeholder:font-sans"
-                        />
-                        <button id="toggle-key-visibility" onclick="toggleKeyVisibility()" class="absolute right-3 text-brand-gray hover:text-white transition focus:outline-none" title="Toggle Visibility">
-                            <i data-lucide="eye" id="eye-icon" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                </div>
-
+            <div id="inputs-grid" class="grid grid-cols-1 gap-5">
                 <!-- Query / Search Section -->
                 <div id="query-container">
-                    <label id="query-label" htmlFor="query-input" class="block text-xs font-semibold text-brand-gray mb-1.5 uppercase tracking-wider">Search Term</label>
+                    <label id="query-label" for="query-input" class="block text-xs font-semibold text-brand-gray mb-1.5 uppercase tracking-wider">Search Term</label>
                     <input
                         id="query-input"
                         type="text"
@@ -357,17 +338,13 @@
                 Designed strictly as a Single-View, client-side, zero-backend dashboard application.
             </p>
             <p class="font-mono text-[10px] tracking-widest text-brand-gray/60 uppercase">
-                &copy; 2026 YouTube Outlier Finder &bull; Built by <a href="https://writewing.in/" target="_blank" rel="noopener">Write Wing Media</a>
+                &copy; 2026 YouTube Outlier Finder &bull; Built by <a href="https://writewing.in/" target="_blank" rel="noopener noreferrer" class="hover:text-brand-red underline transition-colors">Write Wing Media</a>
             </p>
         </div>
     </footer>
 
     <!-- Vanilla Javascript Logic Core -->
     <script>
-        // API Base configuration
-        const API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
-        const MAX_RESULTS_PER_PAGE = 50;
-
         // Reactive Application States
         let allAnalyzedVideos = [];
         let allOutliers = [];
@@ -379,49 +356,10 @@
         let viewVelocityChart = null;
         let topOutliersChart = null;
 
-        // Initialize state, load saved keys, resolve icons
+        // Initialize state, resolve icons
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
-            loadLocalStorageApiKey();
         });
-
-        // Toggle Key Visibility (password string vs text block)
-        function toggleKeyVisibility() {
-            const apiInput = document.getElementById('api-key-input');
-            const eyeIcon = document.getElementById('eye-icon');
-            if (!apiInput || !eyeIcon) return;
-
-            if (apiInput.type === 'password') {
-                apiInput.type = 'text';
-                eyeIcon.setAttribute('data-lucide', 'eye-off');
-            } else {
-                apiInput.type = 'password';
-                eyeIcon.setAttribute('data-lucide', 'eye');
-            }
-            lucide.createIcons();
-        }
-
-        // LocalStorage Key state handling
-        function loadLocalStorageApiKey() {
-            const savedKey = localStorage.getItem('youtube_analytics_api_key');
-            if (savedKey) {
-                document.getElementById('api-key-input').value = savedKey;
-                document.getElementById('clear-key-btn').classList.remove('hidden');
-            }
-        }
-
-        function saveLocalStorageApiKey(key) {
-            if (key && key.trim()) {
-                localStorage.setItem('youtube_analytics_api_key', key.trim());
-                document.getElementById('clear-key-btn').classList.remove('hidden');
-            }
-        }
-
-        function clearApiKey() {
-            localStorage.removeItem('youtube_analytics_api_key');
-            document.getElementById('api-key-input').value = '';
-            document.getElementById('clear-key-btn').classList.add('hidden');
-        }
 
         // Quick Input preset sample click helper
         function setSample(type, query) {
@@ -459,116 +397,20 @@
             }
         }
 
-        // Fetch wrapper for YouTube Data API endpoints
-        async function apiFetch(endpoint, params) {
-            const url = new URL(`${API_BASE_URL}/${endpoint}`);
-            Object.entries(params).forEach(([key, value]) => url.searchParams.append(key, value));
-            
+        // Fetch detailed stats card from local Express secure proxy
+        async function fetchAndAnalyzeVideos(query, inputType) {
+            const url = new URL(window.location.origin + '/api/analyze');
+            url.searchParams.append('query', query);
+            url.searchParams.append('type', inputType);
+
             const response = await fetch(url.toString());
             const data = await response.json();
 
             if (!response.ok) {
-                const errorMsg = data.error?.message || `API request failed with status ${response.status}`;
+                const errorMsg = data.error || `API request failed with status ${response.status}`;
                 throw new Error(errorMsg);
             }
             return data;
-        }
-
-        // Retrieve uploaded videos by locating channel upload playlists
-        async function fetchVideoIdsByChannel(channelInput, apiKey) {
-            // Step 1: Query channel directly by ID match
-            let channelData = await apiFetch('channels', {
-                part: 'contentDetails',
-                id: channelInput.trim(),
-                key: apiKey
-            });
-
-            // Step 2: Handle fallback options (Searching by name, handle suffix `@`...)
-            if (!channelData.items || channelData.items.length === 0) {
-                const searchData = await apiFetch('search', {
-                    part: 'snippet',
-                    q: channelInput.trim(),
-                    type: 'channel',
-                    maxResults: '1',
-                    key: apiKey
-                });
-
-                if (searchData.items && searchData.items.length > 0) {
-                    const foundChannelId = searchData.items[0].id.channelId;
-                    channelData = await apiFetch('channels', {
-                        part: 'contentDetails',
-                        id: foundChannelId,
-                        key: apiKey
-                    });
-                }
-            }
-            
-            if (!channelData.items || channelData.items.length === 0) {
-                throw new Error(`Could not find a YouTube channel matching "${channelInput}". Please check the Channel ID, name, or handle.`);
-            }
-
-            const uploadsPlaylistId = channelData.items[0].contentDetails.relatedPlaylists.uploads;
-
-            // Step 3: Fetch playlist items (videos within Upload playlists)
-            const playlistItemsData = await apiFetch('playlistItems', {
-                part: 'contentDetails',
-                playlistId: uploadsPlaylistId,
-                maxResults: MAX_RESULTS_PER_PAGE.toString(),
-                key: apiKey,
-            });
-            
-            return playlistItemsData.items
-                ?.map(item => item.contentDetails.videoId)
-                .filter(Boolean) || [];
-        }
-
-        // Direct search query lookup
-        async function fetchVideoIdsBySearch(query, apiKey) {
-            const searchData = await apiFetch('search', {
-                part: 'snippet',
-                q: query.trim(),
-                type: 'video',
-                maxResults: MAX_RESULTS_PER_PAGE.toString(),
-                key: apiKey,
-            });
-
-            return searchData.items
-                ?.map(item => item.id.videoId)
-                .filter(Boolean) || [];
-        }
-
-        // Fetch detailed stats card per video ID list
-        async function fetchAndAnalyzeVideos(query, inputType, apiKey) {
-            let videoIds = [];
-
-            if (inputType === 'channel') {
-                videoIds = await fetchVideoIdsByChannel(query, apiKey);
-            } else {
-                videoIds = await fetchVideoIdsBySearch(query, apiKey);
-            }
-
-            if (videoIds.length === 0) {
-                return [];
-            }
-            
-            // Stats batch collection
-            const videoDetailsData = await apiFetch('videos', {
-                part: 'snippet,statistics',
-                id: videoIds.join(','),
-                key: apiKey,
-            });
-            
-            const videos = videoDetailsData.items.map(item => ({
-                id: item.id,
-                title: item.snippet.title,
-                publishedAt: item.snippet.publishedAt,
-                thumbnailUrl: item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url || '',
-                viewCount: parseInt(item.statistics.viewCount || '0', 10),
-                likeCount: parseInt(item.statistics.likeCount || '0', 10),
-                commentCount: parseInt(item.statistics.commentCount || '0', 10),
-            }));
-
-            return videos;
         }
 
         // Calculate view velocity, standard deviation distributions, and identify outliers
