@@ -1,6 +1,9 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const API_BASE_URL = "https://www.googleapis.com/youtube/v3";
 const MAX_RESULTS_PER_PAGE = 50;
@@ -20,40 +23,75 @@ async function apiFetch(endpoint: string, params: Record<string, string>) {
 }
 
 async function fetchVideoIdsByChannel(channelInput: string, apiKey: string): Promise<string[]> {
-  // Step 1: Query channel directly by ID match
-  let channelData = await apiFetch("channels", {
-    part: "contentDetails",
-    id: channelInput.trim(),
-    key: apiKey,
-  });
+  const trimmedInput = channelInput.trim();
+  let channelData: any = null;
 
-  // Step 2: Handle fallback options (Searching by name, handle suffix `@`...)
-  if (!channelData.items || channelData.items.length === 0) {
-    const searchData = await apiFetch("search", {
-      part: "snippet",
-      q: channelInput.trim(),
-      type: "channel",
-      maxResults: "1",
-      key: apiKey,
-    });
-
-    if (searchData.items && searchData.items.length > 0) {
-      const foundChannelId = searchData.items[0].id.channelId;
-      channelData = await apiFetch("channels", {
+  // Step 1: Query channel directly by ID match if it starts with "UC"
+  if (trimmedInput.startsWith("UC")) {
+    try {
+      const data = await apiFetch("channels", {
         part: "contentDetails",
-        id: foundChannelId,
+        id: trimmedInput,
         key: apiKey,
       });
+      if (data.items && data.items.length > 0) {
+        channelData = data;
+      }
+    } catch (e: any) {
+      console.warn("Direct channel ID lookup failed, will try other options:", e.message || e);
     }
   }
 
-  if (!channelData.items || channelData.items.length === 0) {
+  // Step 2: Query by handle if it starts with "@"
+  if (!channelData && trimmedInput.startsWith("@")) {
+    try {
+      const data = await apiFetch("channels", {
+        part: "contentDetails",
+        forHandle: trimmedInput,
+        key: apiKey,
+      });
+      if (data.items && data.items.length > 0) {
+        channelData = data;
+      }
+    } catch (e: any) {
+      console.warn("forHandle lookup failed, will try search option:", e.message || e);
+    }
+  }
+
+  // Step 3: Handle fallback options by searching for channel by query/name
+  if (!channelData) {
+    try {
+      const searchData = await apiFetch("search", {
+        part: "snippet",
+        q: trimmedInput,
+        type: "channel",
+        maxResults: "1",
+        key: apiKey,
+      });
+
+      if (searchData.items && searchData.items.length > 0) {
+        const foundChannelId = searchData.items[0].id.channelId;
+        const data = await apiFetch("channels", {
+          part: "contentDetails",
+          id: foundChannelId,
+          key: apiKey,
+        });
+        if (data.items && data.items.length > 0) {
+          channelData = data;
+        }
+      }
+    } catch (e: any) {
+      console.warn("Search fallback channel resolve failed:", e.message || e);
+    }
+  }
+
+  if (!channelData || !channelData.items || channelData.items.length === 0) {
     throw new Error(`Could not find a YouTube channel matching "${channelInput}". Please check the Channel ID, name, or handle.`);
   }
 
   const uploadsPlaylistId = channelData.items[0].contentDetails.relatedPlaylists.uploads;
 
-  // Step 3: Fetch playlist items (videos within Upload playlists)
+  // Step 4: Fetch playlist items (videos within Upload playlists)
   const playlistItemsData = await apiFetch("playlistItems", {
     part: "contentDetails",
     playlistId: uploadsPlaylistId,
@@ -133,7 +171,10 @@ async function startServer() {
       }
 
       const searchType = type === "channel" ? "channel" : "search";
-      const apiKey = process.env.YOUTUBE_API_KEY || "AIzaSyDjafYqDX2JgzRNAFss6O7x2gQLdrtA07c";
+      let apiKey = process.env.YOUTUBE_API_KEY;
+      if (!apiKey || apiKey.trim() === "" || apiKey === "undefined" || apiKey === "null") {
+        apiKey = "AIzaSyDjafYqDX2JgzRNAFss6O7x2gQLdrtA07c";
+      }
 
       const videos = await fetchAndAnalyzeVideos(query as string, searchType, apiKey);
       res.json(videos);

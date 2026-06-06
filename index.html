@@ -450,7 +450,6 @@
 
         // Trigger analysis sequence on button submit click
         async function handleAnalyze() {
-            const apiKey = document.getElementById('api-key-input').value.trim();
             const query = document.getElementById('query-input').value.trim();
             const errorAlert = document.getElementById('error-alert');
             const findOutliersBtn = document.getElementById('find-outliers-btn');
@@ -458,14 +457,11 @@
             // Clean active errors
             errorAlert.classList.add('hidden');
             
-            if (!apiKey || !query) {
-                document.getElementById('error-message-text').textContent = 'Please fill out both your YouTube Data API Key and query parameters to analyze performance outliers.';
+            if (!query) {
+                document.getElementById('error-message-text').textContent = 'Please fill out your query parameters to analyze performance outliers.';
                 errorAlert.classList.remove('hidden');
                 return;
             }
-
-            // Save key to local storage on run
-            saveLocalStorageApiKey(apiKey);
 
             // Interface Loading transition states
             findOutliersBtn.disabled = true;
@@ -482,7 +478,7 @@
             document.getElementById('loading-state').classList.remove('hidden');
 
             try {
-                const fetchedVideos = await fetchAndAnalyzeVideos(query, inputType, apiKey);
+                const fetchedVideos = await fetchAndAnalyzeVideos(query, inputType);
                 
                 if (fetchedVideos.length === 0) {
                     throw new Error("No videos found. Verify your query term/channel indicator and API key configurations.");
