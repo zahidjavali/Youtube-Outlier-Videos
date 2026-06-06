@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
+import https from "https";
 
 dotenv.config();
 
@@ -12,14 +13,40 @@ async function apiFetch(endpoint: string, params: Record<string, string>) {
   const url = new URL(`${API_BASE_URL}/${endpoint}`);
   Object.entries(params).forEach(([key, value]) => url.searchParams.append(key, value));
 
-  const response = await fetch(url.toString());
-  const data = await response.json();
+  try {
+    const res = await new Promise<{ ok: boolean; status: number; data: any }>((resolve, reject) => {
+      https.get(url.toString(), (response) => {
+        let rawData = "";
+        response.on("data", (chunk) => { rawData += chunk; });
+        response.on("end", () => {
+          try {
+            const parsed = JSON.parse(rawData);
+            resolve({
+              ok: !!(response.statusCode && response.statusCode >= 200 && response.statusCode < 300),
+              status: response.statusCode || 500,
+              data: parsed,
+            });
+          } catch (e) {
+            resolve({
+              ok: false,
+              status: response.statusCode || 500,
+              data: { error: { message: `Failed to parse JSON response from YouTube: ${rawData.substring(0, 150)}` } },
+            });
+          }
+        });
+      }).on("error", (err) => {
+        reject(err);
+      });
+    });
 
-  if (!response.ok) {
-    const errorMsg = data.error?.message || `API request failed with status ${response.status}`;
-    throw new Error(errorMsg);
+    if (!res.ok) {
+      const errorMsg = res.data?.error?.message || `YouTube API request failed with status ${res.status}`;
+      throw new Error(errorMsg);
+    }
+    return res.data;
+  } catch (err: any) {
+    throw new Error(`Network or API Error: ${err.message || err}`);
   }
-  return data;
 }
 
 async function fetchVideoIdsByChannel(channelInput: string, apiKey: string): Promise<string[]> {
